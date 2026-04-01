@@ -1,69 +1,72 @@
 from flask import Flask, request, jsonify
 import random
 import time
-import requests   # ✅ NEW
+import smtplib
+import os
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
-FAST2SMS_API_KEY = "ZWSf5uQHn1XsiFlx7B4Yw9UDkvKzCeROjM02otNVTdypqcAbLEOka8MPD1TNUVv6Sdo0nClwgb42ExQK"   # 🔥 PUT YOUR REAL API KEY
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-OTP_EXPIRY = 120   # seconds (2 minutes)
+OTP_EXPIRY = 180  # seconds (3 minutes)
 
-otp_store = {}     # {mobile: {"otp": "1234", "time": 123456}}
-sessions = {}      # {mobile: "active"}
-users = {}         # {mobile: {"name": "", "email": ""}}
+otp_store = {}   # {email: {"otp": "1234", "time": 123456}}
+sessions = {}    # {email: "active"}
+users = {}       # {email: {"name": "", "mobile": ""}}
 
-# ---------------- SEND SMS FUNCTION ----------------
-def send_sms(mobile, otp):
+# ---------------- SEND EMAIL ----------------
+def send_email_otp(receiver_email, otp):
     try:
-        url = "https://www.fast2sms.com/dev/bulkV2"
+        subject = "Your OTP Code"
+        body = f"""
+Hello,
 
-        payload = {
-            "sender_id": "FSTSMS",
-            "message": f"Your OTP is {otp}",
-            "language": "english",
-            "route": "q",
-            "numbers": mobile
-        }
+Your OTP is: {otp}
 
-        headers = {
-            "authorization": FAST2SMS_API_KEY,
-            "Content-Type": "application/json"
-        }
+This OTP is valid for 3 minutes.
 
-        response = requests.post(url, json=payload, headers=headers)
+Do not share this with anyone.
 
-        print("SMS API Response:", response.text)
+- AI Assistant
+"""
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_ADDRESS
+        msg["To"] = receiver_email
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        print("Email sent to:", receiver_email)
 
     except Exception as e:
-        print("SMS Error:", str(e))
+        print("Email Error:", str(e))
 
 
 # ---------------- SEND OTP ----------------
 @app.route("/send_otp", methods=["POST"])
 def send_otp():
     data = request.json
-    mobile = data.get("mobile")
+    email = data.get("email")
 
-    if not mobile or len(mobile) < 10:
-        return jsonify({"status": "error", "message": "Invalid mobile number"})
-
-    # ✅ Ensure country code (India)
-    if not mobile.startswith("91"):
-        mobile = "91" + mobile
+    if not email or "@" not in email:
+        return jsonify({"status": "error", "message": "Invalid email"})
 
     otp = str(random.randint(1000, 9999))
 
-    otp_store[mobile] = {
+    otp_store[email] = {
         "otp": otp,
         "time": time.time()
     }
 
-    # 🔥 SEND SMS HERE
-    send_sms(mobile, otp)
+    send_email_otp(email, otp)
 
-    print(f"OTP sent to {mobile}: {otp}")  # backup log
+    print(f"OTP sent to {email}: {otp}")
 
     return jsonify({"status": "otp_sent"})
 
@@ -73,34 +76,33 @@ def send_otp():
 def verify_otp():
     data = request.json
 
-    mobile = data.get("mobile")
+    email = data.get("email")
     otp = data.get("otp")
     name = data.get("name")
-    email = data.get("email")
+    mobile = data.get("mobile")  # just stored, not verified
 
-    # Ensure same format as stored
-    if not mobile.startswith("91"):
-        mobile = "91" + mobile
+    if not email:
+        return jsonify({"status": "error", "message": "Email required"})
 
-    record = otp_store.get(mobile)
+    record = otp_store.get(email)
 
     if not record:
         return jsonify({"status": "failed", "message": "No OTP found"})
 
     # Check expiry
     if time.time() - record["time"] > OTP_EXPIRY:
+        otp_store.pop(email, None)
         return jsonify({"status": "expired"})
 
     if record["otp"] == otp:
-        sessions[mobile] = "active"
+        sessions[email] = "active"
 
-        users[mobile] = {
+        users[email] = {
             "name": name,
-            "email": email
+            "mobile": mobile
         }
 
-        # Remove OTP after success
-        otp_store.pop(mobile, None)
+        otp_store.pop(email, None)
 
         return jsonify({"status": "verified"})
     else:
@@ -110,13 +112,9 @@ def verify_otp():
 # ---------------- CHECK SESSION ----------------
 @app.route("/check_session", methods=["POST"])
 def check_session():
-    data = request.json
-    mobile = data.get("mobile")
+    email = request.json.get("email")
 
-    if not mobile.startswith("91"):
-        mobile = "91" + mobile
-
-    if sessions.get(mobile) == "active":
+    if sessions.get(email) == "active":
         return jsonify({"status": "active"})
     else:
         return jsonify({"status": "inactive"})
@@ -125,13 +123,9 @@ def check_session():
 # ---------------- LOGOUT ----------------
 @app.route("/logout", methods=["POST"])
 def logout():
-    data = request.json
-    mobile = data.get("mobile")
+    email = request.json.get("email")
 
-    if not mobile.startswith("91"):
-        mobile = "91" + mobile
-
-    sessions.pop(mobile, None)
+    sessions.pop(email, None)
 
     return jsonify({"status": "logged_out"})
 
