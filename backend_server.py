@@ -1,43 +1,45 @@
 from flask import Flask, request, jsonify
 import random
 import time
-import smtplib
 import os
-from email.mime.text import MIMEText
+import resend
 
 app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
-EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+# Load your Resend API key from Render Environment Variables
+resend.api_key = os.getenv("RESEND_API_KEY")
+
+# Resend allows you to use this default testing email to send messages
+# to the email address you signed up with.
+FROM_EMAIL = "onboarding@resend.dev"
 
 OTP_EXPIRY = 180  # seconds (3 minutes)
 
-otp_store = {}   # {email: {"otp": "1234", "time": 123456}}
-sessions = {}    # {email: "active"}
-users = {}       # {email: {"name": "", "mobile": ""}}
+otp_store = {}  # {email: {"otp": "1234", "time": 123456}}
+sessions = {}  # {email: "active"}
+users = {}  # {email: {"name": "", "mobile": ""}}
 
-# ---------------- SEND EMAIL ----------------
+
+# ---------------- SEND EMAIL USING RESEND API ----------------
 def send_email_otp(receiver_email, otp):
     try:
-        subject = "Your AI Assistant OTP Code"
-        body = f"Hello,\n\nYour OTP is: {otp}\n\nThis OTP is valid for 3 minutes.\n\n- AI Assistant"
+        params = {
+            "from": FROM_EMAIL,
+            "to": receiver_email,
+            "subject": "Your AI Assistant OTP Code",
+            "html": f"<p>Hello,</p><p>Your OTP is: <strong>{otp}</strong></p><p>This OTP is valid for 3 minutes.</p><p>- AI Assistant</p>"
+        }
 
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = EMAIL_ADDRESS
-        msg["To"] = receiver_email
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-            server.send_message(msg)
-
-        print(f"SUCCESS: Email accepted by server for {receiver_email}")
+        # Send the email via API
+        response = resend.Emails.send(params)
+        print(f"SUCCESS: Email accepted by Resend API for {receiver_email}. Resend ID: {response}")
         return True
 
     except Exception as e:
-        print(f"CRITICAL EMAIL ERROR: {str(e)}")
+        print(f"CRITICAL API EMAIL ERROR: {str(e)}")
         return False
+
 
 # ---------------- SEND OTP ROUTE ----------------
 @app.route("/send_otp", methods=["POST"])
@@ -63,7 +65,9 @@ def send_otp():
         return jsonify({"status": "otp_sent"})
     else:
         # Tell the frontend the email failed
-        return jsonify({"status": "error", "message": "SMTP Error. Check Render Logs."}), 500
+        return jsonify({"status": "error", "message": "Email API Error. Check Render Logs."}), 500
+
+
 # ---------------- VERIFY OTP ----------------
 @app.route("/verify_otp", methods=["POST"])
 def verify_otp():
@@ -72,7 +76,7 @@ def verify_otp():
     email = data.get("email")
     otp = data.get("otp")
     name = data.get("name")
-    mobile = data.get("mobile")  # just stored, not verified
+    mobile = data.get("mobile")
 
     if not email:
         return jsonify({"status": "error", "message": "Email required"})
@@ -89,14 +93,8 @@ def verify_otp():
 
     if record["otp"] == otp:
         sessions[email] = "active"
-
-        users[email] = {
-            "name": name,
-            "mobile": mobile
-        }
-
+        users[email] = {"name": name, "mobile": mobile}
         otp_store.pop(email, None)
-
         return jsonify({"status": "verified"})
     else:
         return jsonify({"status": "invalid"})
@@ -106,7 +104,6 @@ def verify_otp():
 @app.route("/check_session", methods=["POST"])
 def check_session():
     email = request.json.get("email")
-
     if sessions.get(email) == "active":
         return jsonify({"status": "active"})
     else:
@@ -117,16 +114,14 @@ def check_session():
 @app.route("/logout", methods=["POST"])
 def logout():
     email = request.json.get("email")
-
     sessions.pop(email, None)
-
     return jsonify({"status": "logged_out"})
 
 
 # ---------------- HEALTH CHECK ----------------
 @app.route("/", methods=["GET"])
 def home():
-    return "Server is running"
+    return "Server is running via Resend API"
 
 
 # ---------------- RUN ----------------
