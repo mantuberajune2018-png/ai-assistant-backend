@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
 # Load your Resend API key from Render Environment Variables
-resend.api_key = os.getenv("RESEND_API_KEY")
+resend.api_key = os.getenv("re_Rsh6vLwa_5JqsvoJzYsHjNeLwg9FCE95X")
 
 # Resend allows you to use this default testing email to send messages
 # to the email address you signed up with.
