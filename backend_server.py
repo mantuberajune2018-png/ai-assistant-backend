@@ -12,7 +12,7 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 
 # Resend allows you to use this default testing email to send messages
 # to the email address you signed up with.
-FROM_EMAIL = "onboarding@resend.dev"
+FROM_EMAIL = "no-reply@xgboostaitechnology.com"
 
 OTP_EXPIRY = 180  # seconds (3 minutes)
 
