@@ -20,18 +20,8 @@ users = {}       # {email: {"name": "", "mobile": ""}}
 # ---------------- SEND EMAIL ----------------
 def send_email_otp(receiver_email, otp):
     try:
-        subject = "Your OTP Code"
-        body = f"""
-Hello,
-
-Your OTP is: {otp}
-
-This OTP is valid for 3 minutes.
-
-Do not share this with anyone.
-
-- AI Assistant
-"""
+        subject = "Your AI Assistant OTP Code"
+        body = f"Hello,\n\nYour OTP is: {otp}\n\nThis OTP is valid for 3 minutes.\n\n- AI Assistant"
 
         msg = MIMEText(body)
         msg["Subject"] = subject
@@ -42,13 +32,14 @@ Do not share this with anyone.
             server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             server.send_message(msg)
 
-        print("Email sent to:", receiver_email)
+        print(f"SUCCESS: Email accepted by server for {receiver_email}")
+        return True
 
     except Exception as e:
-        print("Email Error:", str(e))
+        print(f"CRITICAL EMAIL ERROR: {str(e)}")
+        return False
 
-
-# ---------------- SEND OTP ----------------
+# ---------------- SEND OTP ROUTE ----------------
 @app.route("/send_otp", methods=["POST"])
 def send_otp():
     data = request.json
@@ -59,18 +50,20 @@ def send_otp():
 
     otp = str(random.randint(1000, 9999))
 
-    otp_store[email] = {
-        "otp": otp,
-        "time": time.time()
-    }
+    # Attempt to send the email FIRST
+    email_sent_successfully = send_email_otp(email, otp)
 
-    send_email_otp(email, otp)
-
-    print(f"OTP sent to {email}: {otp}")
-
-    return jsonify({"status": "otp_sent"})
-
-
+    if email_sent_successfully:
+        # Only save the OTP if the email actually went through
+        otp_store[email] = {
+            "otp": otp,
+            "time": time.time()
+        }
+        print(f"OTP formally sent and saved for {email}: {otp}")
+        return jsonify({"status": "otp_sent"})
+    else:
+        # Tell the frontend the email failed
+        return jsonify({"status": "error", "message": "SMTP Error. Check Render Logs."}), 500
 # ---------------- VERIFY OTP ----------------
 @app.route("/verify_otp", methods=["POST"])
 def verify_otp():
