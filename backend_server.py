@@ -126,6 +126,33 @@ def logout():
 def home():
     return "Server is running via Resend API"
 
+# --------------Block of New Brain--------------
+@app.route('/chat', methods=['POST', 'OPTIONS'])
+def chat():
+    # Handle CORS preflight request if you decide to add CORS later
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+        
+    data = request.get_json()
+    question = data.get("question")
+
+    if not question:
+        return jsonify({"status": "error", "message": "No question provided"}), 400
+
+    try:
+        # Securely call OpenAI from the backend
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Using the current standard fast/cheap model
+            messages=[{"role": "user", "content": question}]
+        )
+        answer = response.choices[0].message.content.strip()
+        
+        # Send the answer back to the frontend
+        return jsonify({"status": "success", "answer": answer})
+        
+    except Exception as e:
+        print("OpenAI Error:", e)
+        return jsonify({"status": "error", "message": "Failed to get AI response"}), 500
 
 # ---------------- RUN ----------------
 if __name__ == '__main__':
