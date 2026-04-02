@@ -3,12 +3,15 @@ import random
 import time
 import os
 import resend
+rom openai import OpenAI
 
 app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
 # Load your Resend API key from Render Environment Variables
 resend.api_key = os.getenv("RESEND_API_KEY")
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Resend allows you to use this default testing email to send messages
 # to the email address you signed up with.
