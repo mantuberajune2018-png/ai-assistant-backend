@@ -1,3 +1,4 @@
 Flask
 gunicorn
 resend
+openai==1.30.0
