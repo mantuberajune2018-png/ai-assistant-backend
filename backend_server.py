@@ -3,7 +3,7 @@ import random
 import time
 import os
 import resend
-rom openai import OpenAI
+from openai import OpenAI
 
 app = Flask(__name__)
 
