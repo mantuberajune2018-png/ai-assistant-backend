@@ -128,5 +128,8 @@ def home():
 
 
 # ---------------- RUN ----------------
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    # Get the port from Render's environment, or use 5000 for local testing
+    port = int(os.environ.get("PORT", 5000))
+    # host="0.0.0.0" is required for Render to detect the open port
+    app.run(host="0.0.0.0", port=port)
