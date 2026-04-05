@@ -31,7 +31,7 @@ def send_email_otp(receiver_email, otp):
             "from": FROM_EMAIL,
             "to": receiver_email,
             "subject": "Your AI Assistant OTP Code",
-            "html": f"<p>Hello,</p><p>Your OTP is: <strong>{otp}</strong></p><p>This OTP is valid for 3 minutes.</p><p>- AI Assistant</p><p>Visit: http://www.xgboostaitechnology.com</p>"
+            "html": f"<p>Hello,</p><p>Your OTP is: <strong>{otp}</strong></p><p>This OTP is valid for 3 minutes.</p><p>- AI Assistant</p><p>Visit: http://www.xgboostaitechnology.com</p><p>Thanks & Regards</p><p>Mantu Bera</p>Director, XGBOOST AI TECHNOLOGY (OPC) PRIVATE LIMITED."
         }
 
         # Send the email via API
