@@ -53,7 +53,7 @@ def send_otp():
     if not email or "@" not in email:
         return jsonify({"status": "error", "message": "Invalid email"})
 
-    otp = str(random.randint(1000, 9999))
+    otp = str(random.randint(100000, 999999))
 
     # Attempt to send the email FIRST
     email_sent_successfully = send_email_otp(email, otp)
